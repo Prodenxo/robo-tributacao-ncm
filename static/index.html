@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta Tributária por NCM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-card: rgba(255,255,255,0.04);
+            --bg-card-hover: rgba(255,255,255,0.08);
+            --accent: #00d4aa;
+            --accent-glow: rgba(0, 212, 170, 0.3);
+            --accent-dark: #00a885;
+            --text-primary: #e8ecf1;
+            --text-secondary: #8892a4;
+            --border: rgba(255,255,255,0.08);
+            --danger: #ff4d6a;
+            --success: #00d4aa;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* Background animado */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 20%, rgba(0,212,170,0.06) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(0,100,200,0.04) 0%, transparent 50%);
+            animation: bgFloat 20s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+        @keyframes bgFloat {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-3%, -3%) rotate(3deg); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 680px;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .header .icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px var(--accent-glow);
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: var(--text-secondary);
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        /* Drop zone */
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 48px 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+        }
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--accent);
+            background: var(--bg-card-hover);
+            box-shadow: 0 0 40px var(--accent-glow);
+            transform: translateY(-2px);
+        }
+        .dropzone .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+        .dropzone h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .dropzone p {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        .dropzone input { display: none; }
+
+        /* Progresso */
+        .progress-card {
+            display: none;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-top: 24px;
+        }
+        .progress-card.active { display: block; animation: fadeIn 0.4s ease; }
+
+        .progress-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .progress-header .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .progress-header.done .spinner {
+            border-color: var(--success);
+            border-top-color: var(--success);
+            animation: none;
+        }
+        .progress-header h3 { font-size: 16px; font-weight: 600; }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .log-area {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            line-height: 1.7;
+        }
+        .log-area .line-success { color: var(--success); }
+        .log-area .line-error { color: var(--danger); }
+        .log-area .line-info { color: #5ba8ff; }
+
+        /* Botão de download */
+        .btn-download {
+            display: none;
+            width: 100%;
+            padding: 16px;
+            margin-top: 20px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px var(--accent-glow);
+        }
+        .btn-download.active { display: block; animation: fadeIn 0.4s ease; }
+
+        /* Botão de novo upload */
+        .btn-reset {
+            display: none;
+            width: 100%;
+            padding: 14px;
+            margin-top: 12px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-reset:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+        .btn-reset.active { display: block; }
+
+        /* Footer */
+        .footer {
+            margin-top: 48px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">📊</div>
+            <h1>Consulta Tributária NCM</h1>
+            <p>Envie sua planilha com códigos NCM e receba automaticamente as alíquotas de PIS/COFINS atualizadas.</p>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+            <div class="upload-icon">📁</div>
+            <h3>Arraste seu arquivo .xlsx aqui</h3>
+            <p>ou clique para selecionar</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls">
+        </div>
+
+        <div class="progress-card" id="progressCard">
+            <div class="progress-header" id="progressHeader">
+                <div class="spinner"></div>
+                <h3 id="progressTitle">Processando...</h3>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="log-area" id="logArea"></div>
+        </div>
+
+        <button class="btn-download" id="btnDownload">📥 Baixar Resultado</button>
+        <button class="btn-reset" id="btnReset">↻ Enviar nova planilha</button>
+
+        <div class="footer">Robô Tributação NCM &bull; Automação via E-Auditoria</div>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const progressCard = document.getElementById('progressCard');
+        const progressHeader = document.getElementById('progressHeader');
+        const progressTitle = document.getElementById('progressTitle');
+        const progressBar = document.getElementById('progressBar');
+        const logArea = document.getElementById('logArea');
+        const btnDownload = document.getElementById('btnDownload');
+        const btnReset = document.getElementById('btnReset');
+
+        let currentTaskId = null;
+        let pollInterval = null;
+
+        // Drag and drop
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) enviarArquivo(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) enviarArquivo(fileInput.files[0]);
+        });
+
+        async function enviarArquivo(file) {
+            if (!file.name.match(/\.xlsx?$/i)) {
+                alert('Por favor, envie um arquivo .xlsx');
+                return;
+            }
+
+            dropzone.style.display = 'none';
+            progressCard.classList.add('active');
+            progressHeader.classList.remove('done');
+            progressTitle.textContent = 'Processando...';
+            progressBar.style.width = '5%';
+            logArea.innerHTML = '';
+            btnDownload.classList.remove('active');
+            btnReset.classList.remove('active');
+
+            const formData = new FormData();
+            formData.append('arquivo', file);
+
+            try {
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                currentTaskId = data.task_id;
+                addLog('📄 Arquivo enviado! Aguardando processamento...', 'info');
+                iniciarPolling();
+            } catch (err) {
+                addLog('❌ Erro ao enviar arquivo: ' + err.message, 'error');
+            }
+        }
+
+        function iniciarPolling() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${currentTaskId}`);
+                    const data = await res.json();
+
+                    // Atualizar logs
+                    logArea.innerHTML = '';
+                    data.progresso.forEach(msg => {
+                        let cls = '';
+                        if (msg.includes('✅') || msg.includes('🎉')) cls = 'line-success';
+                        else if (msg.includes('❌') || msg.includes('⚠️')) cls = 'line-error';
+                        else if (msg.includes('🔍') || msg.includes('📊')) cls = 'line-info';
+                        addLog(msg, cls);
+                    });
+
+                    // Estimar progresso
+                    const ncmMatch = data.progresso.filter(m => m.includes('🔍'));
+                    const totalMatch = data.progresso.find(m => m.includes('NCMs únicos'));
+                    if (totalMatch) {
+                        const total = parseInt(totalMatch.match(/(\d+) NCMs/)?.[1] || 1);
+                        const pct = Math.min(95, (ncmMatch.length / total) * 90 + 5);
+                        progressBar.style.width = pct + '%';
+                    }
+
+                    if (data.pronto) {
+                        clearInterval(pollInterval);
+                        progressBar.style.width = '100%';
+                        progressHeader.classList.add('done');
+                        progressTitle.textContent = '✅ Concluído!';
+                        btnDownload.classList.add('active');
+                        btnReset.classList.add('active');
+                    }
+
+                    if (data.status === 'erro') {
+                        clearInterval(pollInterval);
+                        progressTitle.textContent = '❌ Erro no processamento';
+                        btnReset.classList.add('active');
+                    }
+                } catch (err) {
+                    // Silenciar erros de rede temporários
+                }
+            }, 2000);
+        }
+
+        function addLog(msg, cls) {
+            const div = document.createElement('div');
+            if (cls) div.className = cls;
+            div.textContent = msg;
+            logArea.appendChild(div);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        btnDownload.addEventListener('click', () => {
+            window.location.href = `/api/download/${currentTaskId}`;
+        });
+
+        btnReset.addEventListener('click', () => {
+            dropzone.style.display = '';
+            progressCard.classList.remove('active');
+            btnDownload.classList.remove('active');
+            btnReset.classList.remove('active');
+            fileInput.value = '';
+            currentTaskId = null;
+        });
+    </script>
+</body>
+</html>

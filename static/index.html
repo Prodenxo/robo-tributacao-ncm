@@ -122,6 +122,28 @@
         }
         .dropzone input { display: none; }
 
+        .template-box {
+            margin-top: 14px;
+            text-align: center;
+        }
+        .btn-template {
+            display: inline-block;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            background: var(--bg-card);
+        }
+        .btn-template:hover, .btn-template:focus-visible {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            box-shadow: 0 0 20px var(--accent-glow);
+            outline: none;
+        }
+
         /* Progresso */
         .progress-card {
             display: none;
@@ -260,6 +282,9 @@
             <h3>Arraste seu arquivo .xlsx aqui</h3>
             <p>ou clique para selecionar</p>
             <input type="file" id="fileInput" accept=".xlsx,.xls">
+        </div>
+        <div class="template-box">
+            <a class="btn-template" href="/api/modelo" download="modelo_ncm.xlsx">⬇️ Baixar planilha modelo (coluna NCM)</a>
         </div>
 
         <div class="progress-card" id="progressCard">

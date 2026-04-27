@@ -3,11 +3,13 @@ Backend FastAPI - Robô de Tributação por NCM
 """
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from dotenv import load_dotenv
+import io
 import os
 import uuid
 import threading
+import pandas as pd
 from robo import processar_planilha
 
 load_dotenv()
@@ -26,6 +28,21 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @app.get("/")
 async def home():
     return FileResponse("static/index.html")
+
+
+@app.get("/api/modelo")
+async def baixar_planilha_modelo():
+    """Gera uma planilha modelo com a primeira coluna chamada NCM."""
+    output = io.BytesIO()
+    df_modelo = pd.DataFrame({"NCM": [""]})
+    df_modelo.to_excel(output, index=False)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="modelo_ncm.xlsx"'}
+    )
 
 
 @app.post("/api/upload")

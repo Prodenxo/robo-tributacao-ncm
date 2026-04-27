@@ -23,7 +23,8 @@ def extrair_dados_do_texto(texto):
     resultado = {
         'PIS_Presumido': '', 'COFINS_Presumido': '',
         'PIS_Real': '', 'COFINS_Real': '',
-        'Descricao_SPED': ''
+        'Descricao_SPED': '',
+        'Tabela_SPED': '', 'Codigo_SPED': ''
     }
     blocos = re.split(r'Al[ií]quota PIS \([^)]+\):', texto, flags=re.IGNORECASE)
 
@@ -32,13 +33,25 @@ def extrair_dados_do_texto(texto):
         cof_m = re.search(r'Al[ií]quota COFINS \([^)]+\):\s*([\d,.]+)', bloco, re.IGNORECASE)
         fim_m = re.search(r'Fim:\s*([^\n]+)', bloco)
         desc_m = re.search(r'Descri[çc][aã]o SPED:\s*([^\n]+)', bloco, re.IGNORECASE)
+        tab_m = re.search(r'Tabela\s+SPED\s*:\s*([\w.-]+)', bloco, re.IGNORECASE)
+        cod_m = re.search(r'C[óo]digo\s+SPED\s*:\s*([\w.-]+)', bloco, re.IGNORECASE)
 
         if pis_m and cof_m and fim_m:
             if "vigente" not in fim_m.group(1).strip().lower():
                 continue
             pis, cofins = pis_m.group(1), cof_m.group(1)
+            
             if desc_m and not resultado['Descricao_SPED']:
                 resultado['Descricao_SPED'] = desc_m.group(1).strip()
+            
+            tab_val = tab_m.group(1).strip() if tab_m else ""
+            cod_val = cod_m.group(1).strip() if cod_m else ""
+
+            # Prioriza valores reais sobre "-" ou vazio
+            if tab_val and (not resultado['Tabela_SPED'] or resultado['Tabela_SPED'] == '-'):
+                resultado['Tabela_SPED'] = tab_val
+            if cod_val and (not resultado['Codigo_SPED'] or resultado['Codigo_SPED'] == '-'):
+                resultado['Codigo_SPED'] = cod_val
 
             txt = bloco.lower()
             if "não-cumulativo" in txt or "não cumulativo" in txt:
@@ -84,7 +97,7 @@ def processar_planilha(arquivo_bytes, login, senha, callback=None):
         col_ncm = df.columns[0]
 
     df = df.rename(columns={col_ncm: 'NCM'})
-    for col in ['CST', 'PIS_Presumido', 'COFINS_Presumido', 'PIS_Real', 'COFINS_Real']:
+    for col in ['CST', 'PIS_Presumido', 'COFINS_Presumido', 'PIS_Real', 'COFINS_Real', 'Tabela_SPED', 'Codigo_SPED']:
         if col not in df.columns:
             df[col] = ""
 
@@ -260,6 +273,8 @@ def processar_planilha(arquivo_bytes, login, senha, callback=None):
         df.at[idx, 'COFINS_Presumido'] = dados['COFINS_Presumido']
         df.at[idx, 'PIS_Real'] = dados['PIS_Real']
         df.at[idx, 'COFINS_Real'] = dados['COFINS_Real']
+        df.at[idx, 'Tabela_SPED'] = dados['Tabela_SPED']
+        df.at[idx, 'Codigo_SPED'] = dados['Codigo_SPED']
 
     # Gerar bytes do Excel resultado
     output = io.BytesIO()

@@ -63,7 +63,12 @@ def processar_planilha(arquivo_bytes, login, senha, callback=None):
     callback(msg): função opcional para reportar progresso.
     """
     def log(msg):
-        print(msg)
+        try:
+            print(msg)
+        except UnicodeEncodeError:
+            # Se o console não aceitar o emoji, imprime sem ele ou com substituição
+            print(msg.encode('ascii', 'replace').decode('ascii'))
+            
         if callback:
             callback(msg)
 
@@ -92,16 +97,37 @@ def processar_planilha(arquivo_bytes, login, senha, callback=None):
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
+        def navegar_com_retry(url, tentativas=3, wait_until='load'):
+            for tentativa in range(1, tentativas + 1):
+                try:
+                    response = page.goto(url, wait_until=wait_until, timeout=30000)
+                    if response and response.status and response.status >= 400:
+                        raise RuntimeError(f'HTTP {response.status} ao acessar {url}')
+                    return
+                except Exception as exc:
+                    erro = str(exc)
+                    ultimo_tentativa = tentativa == tentativas
+                    if 'net::ERR_ABORTED' in erro and not ultimo_tentativa:
+                        log(f"   ⚠️ Navegação abortada ({tentativa}/{tentativas}), tentando novamente...")
+                        page.wait_for_timeout(1200 * tentativa)
+                        continue
+                    raise RuntimeError(f'Falha ao navegar para {url}: {erro}') from exc
+
+        if not login or not senha:
+            raise ValueError('Credenciais E-Auditoria ausentes no .env (EAUDITORIA_LOGIN/EAUDITORIA_SENHA).')
+
         log("🔑 Fazendo login...")
-        page.goto("https://econsulta.e-auditoria.com.br/")
+        navegar_com_retry("https://econsulta.e-auditoria.com.br/")
         page.wait_for_selector('input[name="username"]', timeout=15000)
         page.fill('input[name="username"]', login)
         page.fill('input[name="password"]', senha)
         page.click('input[type="submit"], button[type="submit"]')
-        log("✅ Login OK!")
+        page.wait_for_load_state('domcontentloaded')
+        page.wait_for_timeout(1500)
 
-        page.goto("https://econsulta.e-auditoria.com.br/Home/Consulta")
+        navegar_com_retry("https://econsulta.e-auditoria.com.br/Home/Consulta")
         page.wait_for_load_state('networkidle')
+        log("✅ Login OK!")
 
         for i, ncm_val in enumerate(ncms_unicos):
             ncm = str(ncm_val).strip()
@@ -111,7 +137,7 @@ def processar_planilha(arquivo_bytes, login, senha, callback=None):
             log(f"🔍 [{i+1}/{len(ncms_unicos)}] NCM: {ncm}")
 
             try:
-                page.goto("https://econsulta.e-auditoria.com.br/Home/Consulta")
+                navegar_com_retry("https://econsulta.e-auditoria.com.br/Home/Consulta")
                 page.wait_for_load_state('networkidle')
                 page.wait_for_timeout(1500)
 
@@ -125,7 +151,14 @@ def processar_planilha(arquivo_bytes, login, senha, callback=None):
                 btn = page.get_by_text("PIS/COFINS", exact=True)
                 btn.wait_for(state="visible", timeout=10000)
                 btn.scroll_into_view_if_needed()
-                btn.click()
+                
+                # Verifica se o botão está habilitado (não está cinza/bloqueado)
+                if not btn.is_enabled():
+                    log(f"   ⚠️ NCM {ncm}: não foi possivel a consulta de NCM")
+                    cache[ncm] = []
+                    continue
+
+                btn.click(timeout=5000)
                 page.wait_for_timeout(2000)
                 page.mouse.wheel(0, 500)
                 page.wait_for_timeout(1000)
@@ -189,8 +222,8 @@ def processar_planilha(arquivo_bytes, login, senha, callback=None):
 
                 cache[ncm] = cst_lista
 
-            except Exception as e:
-                log(f"   ❌ Erro NCM {ncm}: {e}")
+            except Exception:
+                log(f"   ❌ NCM {ncm}: não foi possivel a consulta de NCM")
                 cache[ncm] = []
 
         browser.close()
